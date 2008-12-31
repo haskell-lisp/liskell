@@ -1,0 +1,677 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; LISKELL Prelude
+;;;
+;;; Author(s): Clemens Fruhwirth <clemens@endorphin.org>
+;;;
+;;; It defines syntax sugar for pure Liskell.
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmodule LskPrelude
+    (dspr-namespace-dspr
+     define-dspr-dspr
+     quote
+     pString
+     __dspr-add-dspr
+     __dspr-cond
+     __dspr-simple-list
+     __dspr-backquote
+     __dspr-def-hdsprs
+     __dspr-defmacros
+     __dspr-sParseTree-e
+     __dspr-sParseTree-p
+     __dspr-++*
+     __dspr-:*
+     __dspr-defdata-deriving
+     __dspr-derive-eq
+     __dspr-derive-show
+     __dspr-def-binary-fun-as-prefix
+     mapSymId
+     lsec
+     (module Liskell))
+  (Liskell Debug.Trace Data.Maybe List))
+
+;; Primitive quoting helpers
+
+;; basically they resemble the interface of the ParseTree constructors
+;; with the difference that they will construct a parsetree, that when
+;; evaluated will return a parsetree.
+
+; left section - actuall FLIP!?
+(define (lsec fun right-arg)
+    (lambda (left-arg)
+      (fun left-arg right-arg)))
+
+(define (pString loc sym)
+    (PSym loc (: #\" (++ sym ([] #\")))))
+
+(define (qPSym loc sym)
+    (PList loc ([] (PSym noSrcSpan "PSym")
+		   (PSym noSrcSpan "ghc-6.10.1:SrcLoc.noSrcSpan")
+		   (pString noSrcSpan sym))
+	   noPP))
+
+(define (quote-pp loc (, ps pe))
+    (PList loc ([]
+		(PSym noSrcSpan ",")
+		(pString loc ps)
+		(pString loc pe))
+	   noPP))
+
+;; qPList does not recursive quote its elements. lst is expected to
+;; evaluated to a parsetree list.
+;; Recursive quoting for lists is built into quote.
+
+(define (qPList loc lst pp)
+    (PList loc ([]
+		(PSym noSrcSpan "PList")
+		(PSym noSrcSpan "ghc-6.10.1:SrcLoc.noSrcSpan")
+		lst
+		(quote-pp loc pp))
+	   noPP))
+
+(define (quote pt)
+  (case pt
+    ((PSym loc sym)
+     (qPSym loc sym))
+    ((PList loc lst pp)
+     (qPList loc (PList noSrcSpan (: (PSym noSrcSpan "[]")
+				     (map quote lst))
+			noPP) pp))))
+
+
+
+;; Quote for pattern matching. This is a bit sensitive.
+
+(define (qPList-pat loc lst pp)
+    (PList loc ([]
+		(PSym noSrcSpan "PList")
+		(PSym noSrcSpan "_")
+		lst
+		(quote-pp loc pp))
+	   noPP))
+
+(define (quote-pat pt)
+  (case pt
+    ((PSym loc sym)
+     (PList loc ([] (PSym noSrcSpan "PSym")
+		    (PSym noSrcSpan "_")
+		    (pString noSrcSpan sym))
+	    noPP))
+    ((PList loc lst pp)
+     (qPList-pat loc (PList noSrcSpan (: (PSym noSrcSpan "[]")
+					 (map quote-pat lst))
+			    noPP) pp))))
+
+(define (mapSymId (PSym loc str) f)
+  (case (parseOrig str)
+    ((, "" "" s) (PSym loc (f s)))
+    ((, "" q s) (PSym loc (++ q (++ "." (f s)))))
+    ((, o q s) (PSym loc (++ o (++ ":" (++ q (++ "." (f s)))))))))
+
+(defwithsig (get-dspr-name symbol)
+    (-> ParseTree ParseTree)
+  (mapSymId symbol (++ "__dspr-")))
+
+
+;; define-dspr is just another term for define. It only redresses a
+;; function-name into (get-dspr-name function-name) to kick it into
+;; dispatcher namespace
+
+(define (define-dspr-dspr kn (@ pt (PList loc1 pts (, "" ""))) ks kf)
+    (case pts
+      ((: (PList loc2 ([] (PSym _ "define-dspr")
+			  defname
+			  expr) (, "" ""))
+	  t)
+       (ks (PList loc1 (: (PList loc2 ([] (PSym noSrcSpan "define")
+					  (case defname
+					    ((PList loc3 (: funhead funargs) (, "" ""))
+					     (PList loc3 (: (get-dspr-name funhead) funargs) (, "" "")))
+					    ((@ sym (PSym _ _))
+					     (get-dspr-name sym)))
+					  expr)
+				 (, "" ""))
+			  t)
+		  (, "" ""))))
+      (_ (kn pt ks kf))))
+
+(define (dspr-namespace-dspr kn pt ks kf)
+    (case pt
+      ((PList loc ([] sym) (, "d" ""))
+       (ks (get-dspr-name sym)))
+      (_ (kn pt ks kf))))
+
+;; Due to incomprehensible fight with the eternal regression, we can
+;; not name these two dispatchers properly
+(defenv (lambda ((LskEnv e p t d)) 
+	  (return (LskEnv (dspr-namespace-dspr e) p t (define-dspr-dspr d)))))
+
+;; This is the most simple case of backquoting, namely symbol quoting.
+;; It is not a full-flexed backquoting facility and shall only be used
+;; in this prelude as syntax sugar to aid the definition of other
+;; syntax sugar.
+
+(define-dspr (backquote-on-syms kn pt ks kf)
+    (case pt
+      ((PSym loc sym)
+       (if (== (head sym) #\`)
+	   (ks (qPSym loc (tail sym)))
+	   (kn pt ks kf)))
+      (_ (kn pt ks kf))))
+
+(envlet
+ (lambda ((LskEnv e p t d)) 
+   (return (LskEnv (d(backquote-on-syms) e) p t d)))
+
+
+ ;; Rewrite this function. It's kind ugly.
+ (define-dspr (add-dspr kn (@ pt (PList loc1 pts (, "" ""))) ks kf)
+     (case pts
+       ((: (PList loc2 (: (PSym _ "add-dspr")
+			  add-directives)
+		  (, "" ""))
+	   t)
+	(let ((transformed ;; This is a list that aggregates all dspr per function category .. 
+	       ;; I guess that's kinda ugly?
+	       (map (lambda (lst)
+		      (, (let (((PList _ ([] (PSym _ where) _) (, "" "")) (head lst)))
+			   where)
+			 (map (lambda ((PList _ ([] (PSym _ _) function) (, "" "")))
+				(get-dspr-name function))
+			      lst)))
+		    (groupBy (lambda ((PList _ ([] (PSym _ where1) _) (, "" ""))
+				      (PList _ ([] (PSym _ where2) _) (, "" "")))
+			       (== where1 where2))
+			     (sortBy (lambda ((PList _ ([] (PSym _ where1) _) (, "" ""))
+					      (PList _ ([] (PSym _ where2) _) (, "" "")))
+				       (compare where1 where2))
+				     add-directives))))
+	      ((wrapper startsym lst)
+	       (foldr (lambda (pt1 pt2)
+			(PList noSrcSpan ([] pt1 pt2) noPP))
+		      startsym
+		      lst))
+	      ((get-snd key lst)
+	       (snd (fromMaybe (, "" ([]))
+			       (find (lambda (element)
+				       (== (fst element) key))
+				     lst)))))
+	  (ks (PList loc1 (: (PList noSrcSpan ([] `defenv
+						  (PList noSrcSpan
+							 ([] `lambda
+							     (PList noSrcSpan ([] (PList noSrcSpan ([] `LskEnv `e `p `t `d) noPP)) noPP)
+							     (PList noSrcSpan ([] `return
+										  (PList noSrcSpan ([] `LskEnv
+												       (wrapper `e
+														(get-snd "expression" transformed))
+												       (wrapper `p
+														(get-snd "pattern" transformed))
+												       (wrapper `t
+														(get-snd "type" transformed))
+												       (wrapper `d
+														(get-snd "declaration" transformed))) noPP)) noPP))
+							 noPP))
+				    noPP)
+			     t)
+		     (, "" "")))))
+       (_ (kn pt ks kf))))
+
+ (defenv (lambda ((LskEnv e p t d)) 
+	   (return (LskEnv e p t (d(add-dspr) d)))))
+  
+ (define (trf_cond capairs)
+     (case capairs
+       (([]) `undefined)	      ; no actions. return undefined. 
+       ((: (PList _ ([] cond action) _)
+	   rest)
+	(PList noSrcSpan ([] `if
+			     cond
+			     action
+			     (trf_cond rest))
+	       noPP))
+       (_ (error (show capairs)))))
+
+ (define-dspr (cond kn pt ks kf)
+     (case pt
+       ((PList _ (: (PSym _ "cond") rest) _)
+	(ks (trf_cond rest)))
+       (_ (kn pt ks kf))))
+ 
+ ;; The simple list dispatcher defines a short form on explicit lists
+ ;; They resemble the syntactic markup of CL quoted lists
+ ;; %(a b c d)
+ ;; In contrast to CL, they are _evaluated_. CL, should think of it as (list a b c).
+ ;; nil is rewritten to the empty list ([]).
+
+ (define-dspr (simple-list kn pt ks kf)
+     (case pt
+       ((PList loc lst (, "%" ""))
+	(ks (PList loc (: (PSym noSrcSpan "[]") lst)  noPP)))
+       ((PSym loc "nil")
+	(ks (PList loc ([] (PSym noSrcSpan "[]")) noPP)))
+       (_ (kn pt ks kf))))
+
+; (define-dspr (quote kn pt ks kf)
+;     (case pt
+;       ((PList loc lst (, "'" ""))
+;	(ks (PList loc (: (PSym noSrcSpan "[]" "") lst) noPP)))
+;       ((PSym loc "nil" "")
+;	(ks (PList loc ([] (PSym noSrcSpan "[]" "")) noPP)))
+;       (_ (kn pt ks kf))))
+
+ ;; Add simple-list and cond dsprs
+ (add-dspr (expression simple-list)
+	   (expression cond)
+	   (pattern simple-list))
+
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ ;; BACKQUOTING
+ ;;
+ ;; For a basic explaination of Backquoting (aka Quasiquoting) refer to
+ ;; http://citeseer.ist.psu.edu/bawden99quasiquotation.html
+ ;;
+ ;; The basic process is
+ ;;
+ ;; `<pt> is equal to (quote pt) except for two cases
+ ;; 1. `,<pt> is equal to pt
+ ;; 2. when pt is a list. Then `(<pt> <pt> <pt> ..) is equal to 
+ ;;    (SList (concat ([] [<pt>] [<pt>] [<pt>]))).
+ ;;
+ ;; (The bracket operator [<pt>] is different from the list
+ ;; construction operator []. The similarity in syntax is a mere
+ ;; coincidience.)
+ ;;
+ ;; For the bracket operator,
+ ;; [<pt>] is equal to ([] `<pt>)
+ ;; except in one case, namely
+ ;; [,@<pt>] is equal to (pt_list <pt>).
+ ;; 
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+ ;; Predicate on a parse tree that either Just returns the payload of
+ ;; a comma-ed item or returns Nothing, when pt is not prefixed by a comma.
+ (define (comma? pt)
+     (>>= (case pt
+	    ((PList loc lst (, ps pe))
+	     (if (&& (not (null ps))
+		     (== (head ps) #\,))
+		 (Just (PList loc lst (, (tail ps) pe))) ; ,(..)
+		 Nothing))		; (..expand comma items..)
+	    ((PSym loc sym)
+	     (if (&& (|| (not (null sym))
+			 (error "Invalid null symbol encountered"))
+		     (&& (== (head sym) #\,)
+			 (not (null (tail sym))))) ; if tail is null we see a comma for tuples.
+		 (Just (PSym loc (tail sym)))
+		 Nothing)))
+	  (lambda (pt)
+	    (return (PList (pt_loc pt) %(`toParseTree pt) noPP)))))
+
+ ;; Returns either Just a parsetree that evaluates to a parse tree
+ ;; list, or Nothing when pt is not prefixed by ,@.
+ (define (comma-at? pt)
+     (>>= (case pt
+	    ((PList loc lst (, ps pe))
+	     (if (and %((not (null ps))
+			(== (head ps) #\,)
+			(not (null (tail ps)))
+			(== (head (tail ps)) #\@)))
+		 (Just (PList loc lst (, (drop 2 ps) pe))) ; ,(..)
+		 Nothing))		; (..expand comma items..)
+	    ((PSym loc sym)
+	     (if (and %((|| (not (null sym))
+			    (error "Invalid null symbol encountered"))
+			(== (head sym) #\,)
+			(not (null (tail sym)))
+			(== (head (tail sym)) #\@)))
+		 (Just (PSym loc (drop 2 sym))) ; ,@a
+		 Nothing)))
+	  (lambda (pt)
+	    (return (PList (pt_loc pt) %(`pt_list
+					 (PList (pt_loc pt) %(`toParseTree pt) noPP))
+			   noPP)))))
+
+ ;; Either returns the payload of a backquoted parse tree or returns
+ ;; Nothing when pt is not backquoted.
+ (define (quoted? pt)
+     (case pt
+       ((PList loc %((PSym _ "backquote") payload) (, "" ""))
+	(Just payload))
+       ((PSym loc sym)
+	(if (&& (|| (not (null sym)) (error "Invalid null symbol"))
+		(== (head sym) #\`))
+	    (Just (PSym loc (tail sym)))
+	    Nothing))
+       ((PList loc lst (, pre post))
+	(if (&& (not (null pre))
+		(== (head pre) #\`))
+	    (Just (PList loc lst (, (tail pre) post)))
+	    Nothing))))
+
+ ;; Parse tree dispatcher for backquoting 
+ (defwithsig (bq-process kn pt ks kf)
+     (-> (-> ParseTree
+	     (-> ParseTree a)
+	     (-> ParseTree a)
+	     a)
+	 ParseTree
+	 (-> ParseTree a)
+	 (-> ParseTree a)
+	 a)
+   (fromMaybe (kn pt ks kf)
+	      (>>= (quoted? pt)
+		   (lambda (pt)
+		     (let ((pt' (bq-process (lambda (pt ks kf) pt)
+					    pt
+					    id
+					    (error "Don't touch kf!"))))
+		       (return (ks (fromMaybe (case pt'
+						((PList loc lst pp)
+						 (qPList loc (PList loc %(`concat (PList loc (: `[] (map bq-bracket lst)) noPP))
+								    noPP)
+							 pp))
+						(_ (quote pt')))
+					      (comma? pt')))))))))
+ ;; This function returns a parse tree that when evaluated produces a parse tree list.
+ (defwithsig (bq-bracket pt)
+     (-> ParseTree ParseTree)
+   (fromMaybe (PList noSrcSpan %(`[] (bq-process
+				      (error "Don't touch kn!")
+				      (PList noSrcSpan %(`backquote pt) noPP)
+				      id
+				      (error "Don't touch kf!"))
+				     ) noPP)
+	      (comma-at? pt)))
+
+ (define-dspr backquote bq-process))
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; Return to a vanilla compiler environment and add a properly coded backquote.
+(defenv (lambda ((LskEnv e p t d)) 
+	  (return (LskEnv e p t (d(add-dspr) d)))))
+
+(add-dspr (expression simple-list)
+	  (expression cond)
+	  (expression backquote)
+	  (pattern simple-list))
+
+
+;; The following macros for defining head dispatchers
+;; A head dispatchers tests for a specified symbol 'sym' for the ParseTree form (PList _ (PSym _ sym _) _),
+;; that is a list (sym .. ..)
+;;
+;; In general the defheadX-dispatcher top level macro takes 3 arguments
+;;   name, a name for the new dispatcher
+;;   head, usually a symbol the dispatcher should look for (also can be a different parse tree form)
+;;   callable, a callable one-argument expression that takes a list of parsetree.
+;;   
+
+(define (emit-hdspr-decls %(dspr-name dispatch-on dspr-fun))
+    `(define (,dspr-name kn pt_lst ks kf)
+      (case (pt_list pt_lst)
+	(nil (kn pt_lst ks kf))
+	((: p ps)
+	 (case p
+	   ((PList loc (: h t) (, "" ""))
+	    (if (== h ,dispatch-on)
+		(ks (PList ghc-6.10.1:SrcLoc.noSrcSpan
+			   (++ (,dspr-fun t)
+			       ps)
+			   noPP))
+		(kn pt_lst ks kf)))
+	   (_ (kn pt_lst ks kf)))))))
+
+;; defheadm is able to define dspr that emit a series of declarations
+
+
+;; symbol capture problem for kn p ks kf FIXME
+(define (emit-hdspr %(dspr-name dispatch-on dspr-fun))
+    `(define (,dspr-name kn p ks kf)
+      (case p
+	((PList loc (: h t) (, "" ""))
+	 (if (== h ,dispatch-on)
+	     (ks (,dspr-fun t))
+	     (kn p ks kf)))
+	(_ (kn p ks kf)))))
+
+(define (def-hdspr-dspr-generic dispatch-on dispatch-fun kn pt-lst ks kf)
+    (case (pt_list pt-lst)
+      (nil (kn pt-lst ks kf))
+      ((: p ps)
+       (case p
+	 ((PList loc (: h t) (, "" ""))
+	  (if (== h dispatch-on)
+	      (ks (PList noSrcSpan
+			 (: (dispatch-fun t)
+			    ps)
+			 noPP))
+	      (kn pt-lst ks kf)))
+	 (_ (kn pt-lst ks kf))))))
+
+(define def-hdspr-dspr
+    (def-hdspr-dspr-generic `def-hdspr emit-hdspr))
+
+(define def-hdspr-decls-dspr
+    (def-hdspr-dspr-generic `def-hdspr-decls emit-hdspr-decls))
+
+(define-dspr (def-hdsprs kn)
+    (def-hdspr-dspr (def-hdspr-decls-dspr kn)))
+
+(add-dspr (declaration def-hdsprs))
+
+;; Now here comes the macro facility stuff
+
+(def-hdspr-decls
+    defmacro-dspr
+    `defmacro
+  (lambda (%(funhead expr))
+    (let (((, dispatch-fun dspr-name)
+	   (case (head (pt_list funhead))
+	     ((PList _ %(macroname dispatchername) (, "" ""))
+	      (, macroname dispatchername))
+	     ((@ s (PSym _ _))
+	      (, s (get-dspr-name s)))
+	     (_ (error "Unknown macro head")))))
+      %(`(def-hdspr
+	  ,dspr-name
+	  ,(quote dispatch-fun)
+	  (lambda ,(tail (pt_list funhead))
+	    ,expr))))))
+
+(def-hdspr-decls
+    defmacro-decl-dspr
+    `defmacro-decl
+  (lambda (%(funhead expr))
+    (let (((, dispatch-fun dspr-name)
+	   (case (head (pt_list funhead))
+	     ((PList _ %(macroname dispatchername) (, "" ""))
+	      (, macroname dispatchername))
+	     ((@ s (PSym _ _))
+	      (, s (get-dspr-name s)))
+	     (_ (error "Unknown macro head")))))
+      %(`(def-hdspr-decls
+	  ,dspr-name
+	  ,(quote dispatch-fun)
+	  (lambda ,(tail (pt_list funhead))
+	    ,expr))))))
+
+(define-dspr (defmacros d) 
+  (defmacro-dspr (defmacro-decl-dspr d)))
+
+(add-dspr (declaration defmacros))
+
+(defmacro ((SSym sSym-p-dspr) pts)
+    (let ((ml (length pts)))
+      (case ml
+	(1 `(PSym _ ,(!! pts 0)))
+	(_ (error "Unknown arity for SSym")))))
+
+(defmacro ((SSym sSym-e-dspr) pts)
+    (let ((ml (length pts )))
+      (case ml
+	(1 `(PSym ghc-6.10.1:SrcLoc.noSrcSpan ,(!! pts 0)))
+	(_ (error "Unknown arity for SSym")))))
+
+(defmacro ((SList sList-p-dspr) pts)
+    (let ((ml (length pts)))
+      (case ml
+	(1 `(PList _ ,(!! pts 0) (, "" "")))
+	(2 `(PList _ ,(!! pts 0) ,(!! pts 1)))
+	(_ (error "Unknown arity for SList")))))
+
+(defmacro ((SList sList-e-dspr) pts)
+    (let ((ml (length pts)))
+      (case ml
+	(1 `(PList ghc-6.10.1:SrcLoc.noSrcSpan ,(!! pts 0) (, "" "")))
+	(2 `(PList ghc-6.10.1:SrcLoc.noSrcSpan ,(!! pts 0) ,(!! pts 1)))
+	(_ (error "Unknown arity for SList")))))
+
+(defmacro ((SString sString-e-dspr) %(string))
+    `(pString ghc-6.10.1:SrcLoc.noSrcSpan ,string))
+
+(define-dspr (sParseTree-e k)
+    (sString-e-dspr (sList-e-dspr (sSym-e-dspr k))))
+(define-dspr (sParseTree-p k)
+    (sList-p-dspr (sSym-p-dspr k)))
+
+(add-dspr (expression sParseTree-e)
+	  (pattern sParseTree-p))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;:
+;; Infix operator to multi-argument prefix macro conversion.
+;; 
+;; Infix operators are convenient because they allow easy composition
+;; of expression only abitrated by precedence levels and associativity
+;; declarations.
+;;
+;; To regain a bit of this flexibility, we create multi-arguments
+;; macros to do the neccessary expansion parametrizable in its
+;; associtivity.
+;;
+;; (+* 1 2 3 4) can be rewritten to (+ 1 (+ 2 (+ 3 4))) 
+;; (/ 1 2 3 4) while (/ (/ (/ (1 2) 3) 4)
+;;
+;; Notice, the macro declaration below is a higher order PTT
+;; in LskPrelude. 
+
+(defmacro-decl (def-binary-fun-as-prefix %(function associativity))
+    (let ((function* (mapSymId function (lsec ++ "*"))))
+      %(`(defmacro (,function* pts)
+	     (case (length pts)
+	       (0 (error "Empty infix lift"))
+	       (1 (error (++ "Singular infix lift"
+			     (show pts))))
+	       (2 `(,,(quote function) ,@pts))
+	       (_ ,(case associativity
+			 ((SSym "right")
+			  ``(,,(quote function) ,(head pts) (,,(quote function*) ,@(tail pts))))
+			 ((SSym "left")
+			  ``(,,(quote function) (,,(quote function*) ,@(init pts)) ,(last pts))))))))))
+
+(add-dspr (declaration def-binary-fun-as-prefix))
+
+(def-binary-fun-as-prefix : right)
+(def-binary-fun-as-prefix ++ right)
+(def-binary-fun-as-prefix + right)
+
+(add-dspr (expression :*)
+	  (expression ++*)
+	  (pattern :*))
+
+;; This dispatcher splits
+;; (defdata Type (Constructor1 ..) (Constructor2) ... (derive Eq Show))
+;; into a cleaned defdata definition
+;; (defdata Type (Constructor1 ..) (Constructor2) ... )
+;; and
+;; (derive Eq Type (Constructor1 ..) (Constructor2) ... )
+;; (derive Show Type (Constructor1 ..) (Constructor2) ... )
+
+(define-dspr (defdata-deriving kn (SList lst) ks kf)
+    (case lst
+      ((: (SList (: (SSym "defdata")
+		    args))
+	  t)
+       (case (find (lambda (arg)
+		     (case arg
+		       ((SList (: (SSym cname) payload))
+			(== cname "derive"))
+		       (_ False)))
+		   (tail args))
+	 ((Just (@ deriving-clause
+		   (SList (: (SSym "derive")
+			     subclauses))))
+	  (let ((cleaned-clause (: (head args)
+				   (delete deriving-clause
+					   (tail args)))))
+	    (ks (SList (: (SList (: (SSym "defdata")
+				    cleaned-clause))
+			  (++ (map (lambda (symbol)
+				     `(derive ,symbol ,@(cleaned-clause)))
+				   subclauses)
+			      t))))))
+	 (Nothing (kn (SList lst) ks kf))))
+      (_ (kn (SList lst) ks kf))))
+
+(add-dspr (declaration defdata-deriving))
+
+(define-dspr (derive-eq kn (SList lst) ks kf)
+    (let ((a1stream (map (lambda (number)
+			   (SSym (: #\a (show number))))
+			 (enumFrom 1)))
+	  (b1stream (map (lambda (number)
+			   (SSym (: #\b (show number))))
+			 (enumFrom 1))))
+      (case lst
+	((: (SList (:* (SSym "derive")
+		       (SSym "Eq")
+		       head
+		       constructors))
+	    t)
+	 (ks (SList (: `(definstance (Eq ,head)
+			 ,@(map (lambda ((SList (: constructor
+						   args)))
+				  `((== (,constructor ,@(take (length args) a1stream)) (,constructor ,@(take (length args) b1stream)))
+				    (and %(,@(zipWith3 (lambda (aelem belem _)
+							 `(== ,aelem ,belem))
+						       a1stream
+						       b1stream
+						       (enumFromTo 1 (length args)))))))
+				constructors)
+			 ((== _ _) False))
+		       t))))
+	(_ (kn (SList lst) ks kf)))))
+
+(define-dspr (derive-show kn (SList lst) ks kf)
+    (let ((a1stream (map (lambda (number)
+			   (SSym (: #\a (show number))))
+			 (enumFrom 1)))
+	  (b1stream (map (lambda (number)
+			   (SSym (: #\b (show number))))
+			 (enumFrom 1))))
+      (case lst
+	((: (SList (:* (SSym "derive")
+		       (SSym "Show")
+		       head
+		       constructors))
+	    t)
+	 (ks (SList (: `(definstance (Show ,head)
+			 ,@(map (lambda ((SList (: constructor
+						   args)))
+				  (if (null args)
+				      `((show (,constructor))
+					,(SString (pt_sym constructor)))
+				      `((show (,constructor ,@(take (length args) a1stream)))
+					(++* "("
+					     ,(SString (pt_sym constructor))
+					     ,@(concat (map (lambda (x) %((SSym (show " ")) `(show ,x))) (take (length args) a1stream)))
+					     ")"))))
+				constructors))
+		       t))))
+	(_ (kn (SList lst) ks kf)))))
+
+
+(add-dspr (declaration derive-eq))
+(add-dspr (declaration derive-show))

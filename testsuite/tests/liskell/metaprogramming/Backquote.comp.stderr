@@ -1,0 +1,20 @@
+
+Backquote.lsk:17:58:
+    Couldn't match expected type `TransformationMonad (HsExpr.LHsExpr RdrName.RdrName)'
+	   against inferred type `(ParseTree -> a) -> (ParseTree -> a) -> a'
+    In the second argument of `backquote-dispatcher-on-syms', namely
+	`e'
+    In the first argument of `LskEnv', namely
+	`backquote-dispatcher-on-syms trf_expr e'
+    In the first argument of `return', namely
+	`LskEnv (backquote-dispatcher-on-syms trf_expr e) p t d'
+Loading package base ... linking ... done.
+Loading package template-haskell ... linking ... done.
+Loading package readline-1.0 ... linking ... done.
+Loading package unix-1.0 ... linking ... done.
+Loading package Cabal-1.1.7 ... linking ... done.
+Loading package regex-base-0.71 ... linking ... done.
+Loading package regex-posix-0.71 ... linking ... done.
+Loading package regex-compat-0.71 ... linking ... done.
+Loading package haskell98 ... linking ... done.
+Loading package ghc-6.7 ... linking ... done.

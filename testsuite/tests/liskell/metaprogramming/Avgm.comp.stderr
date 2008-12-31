@@ -1,0 +1,14 @@
+
+Avgm.lsk:4:20: Not in scope: `backquote-dspr'
+
+Avgm.lsk:4:76: Not in scope: `def-hdspr-dsprs'
+Loading package base ... linking ... done.
+Loading package template-haskell ... linking ... done.
+Loading package readline-1.0 ... linking ... done.
+Loading package unix-1.0 ... linking ... done.
+Loading package Cabal-1.1.7 ... linking ... done.
+Loading package regex-base-0.71 ... linking ... done.
+Loading package regex-posix-0.71 ... linking ... done.
+Loading package regex-compat-0.71 ... linking ... done.
+Loading package haskell98 ... linking ... done.
+Loading package ghc-6.7 ... linking ... done.

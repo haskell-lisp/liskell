@@ -1,0 +1,6 @@
+; Dependency target for Test02
+
+(defmodule Test02Dep _ (Prelude))
+
+(define foobar undefined)
+

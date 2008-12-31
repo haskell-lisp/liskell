@@ -1,0 +1,8 @@
+(defmodule NopDispatcher _ (LskToHs SrcLoc LskParseTree LskTransformationMonad Quote))
+
+(define (nop-dispatcher k pt)
+  (k pt))
+
+(defenv (lambda ((LskEnv e p t d)) (return (LskEnv (nop-dispatcher e) p t d))))
+
+(define k 12)

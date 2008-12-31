@@ -1,0 +1,152 @@
+;;;
+;;; Tic Tac Toe implemented in pure Liskell
+;;;
+;;; Clemens Fruhwirth <clemens@endorphin.org>
+;;; Data structures: move = Set Int
+;;;                  state = a tuple of moves
+;;;                  player = character
+
+(defmodule TicTacToe (main)
+  ((Data.List (flags qualified (as List)) sortBy map)
+   Data.Set
+   System))
+
+(define board-construct (, empty empty))
+
+(define empty-board (fromList ([] 1 2 3 4 5 6 7 8 9)))
+(define (board-valid-moves (, stateA stateB))
+    (\\ empty-board
+	(union stateA stateB)))
+
+(define (board-is-valid-move? state move)
+  (member move (board-valid-moves state)))
+
+(define (board-add-move (, stateA stateB) move player)
+  (case player
+    (#\a (, (insert move stateA)
+	    stateB))
+    (#\b (, stateA
+	    (insert move stateB)))))
+
+(define (board-get-move (, stateA stateB) move)
+    (if (member move stateA)
+	#\a
+	(if (member move stateB)
+	    #\b
+	    #\x)))
+
+(define (move->print-char state move)
+  (case (board-get-move state move)
+    (#\a "X")
+    (#\b "O")
+    (#\x " ")))
+
+(define (print-board state)
+  (let (((print-states x y z headstr tailstr)
+	 (print (++ headstr
+                (++ (move->print-char state x)
+		(++ " | "
+		(++ (move->print-char state y)
+		(++ " | "
+		(++ (move->print-char state z)
+		    tailstr)))))))))
+    (>> (print "7---+-8-+---9")
+    (>> (print-states 7 8 9 "| " " |")
+    (>> (print "+---+-5-+---+")
+    (>> (print-states 4 5 6 "4 " " 6")
+    (>> (print "+---+---+---+")
+    (>> (print-states 1 2 3 "| " " |")
+	(print "1---+-2-+---3")))))))))
+
+
+(define (prompt-move state)
+  (>> (print (++ "Please enter a move("
+	     (++ (show (board-valid-moves state))
+		 ") :")))
+      (>>= (:: readLn (IO Int))
+	   (lambda (move)
+	     (if (board-is-valid-move? state move) 
+		 (return move)
+		 (prompt-move state))))))
+
+(define win-combs (Prelude.map fromList
+			       ([] ([] 1 2 3)  ([] 4 5 6) ([] 7 8 9)
+				   ([] 1 4 7)  ([] 2 5 8) ([] 3 6 9)
+				   ([] 1 5 9)  ([] 3 5 7))))
+(define (xs-in-y xs y)
+    (case xs
+      (([]) False)
+      ((: x xs) (|| (isSubsetOf x y)
+		    (xs-in-y xs y)))))
+(define (player state _)
+  (>> (print-board state)
+      (prompt-move state)))
+
+(define (game-over? (, stateA stateB))
+  (if (xs-in-y win-combs stateA)
+      (Just #\a)
+      (if (xs-in-y win-combs stateB)
+	  (Just #\b)
+	  (if (Data.Set.null (board-valid-moves (, stateA stateB)))
+	      (Just #\d)
+	      Nothing))))
+
+(define (game-loop player opponent player-fn opponent-fn state)
+  (case (game-over? state)
+    ((Just result) (>> (print-board state)
+		       (>> (print (show result))
+			   (return result))))
+    (Nothing  (>>= (player-fn state player)
+		   (lambda (move)
+		     (let ((new-board (board-add-move state move player)))
+		       (game-loop opponent player opponent-fn player-fn new-board)))))))
+
+(define (rate-outcome-a (, _ result))
+  (case result
+    (#\a 1)
+    (#\d 0)
+    (#\b (- 0 1))))
+
+(define (rate-outcome-b result-cons)
+  (- 0 (rate-outcome-a result-cons)))
+
+(define (opponent ego)
+  (case ego
+    (#\a #\b)
+    (#\b #\a)))
+
+
+(define (computer-player state ego)
+    (case (game-over? state)
+      ((Just a) (, undefined a))
+      (Nothing
+       (let ((results
+	      (List.map
+	       (lambda (move)
+		 (let ((new-state (board-add-move state move ego))
+		       ((, _ opresult)
+			(computer-player new-state (opponent ego))))
+		   (, move opresult)))
+	       (Data.Set.toList (board-valid-moves state))))
+	     (rate-with (case ego
+			  (#\a rate-outcome-a)
+			  (#\b rate-outcome-b)))
+	     (sorted-results
+	      (List.sortBy (lambda (result1 result2)
+			     (compare (rate-with result2)
+				      (rate-with result1)))
+			   results)))
+	 ;; return the best move
+	 (head sorted-results)))))
+
+(define (computer state player)
+  (return (fst (computer-player state player))))
+
+(define main
+  (>>= System.getArgs
+       (mapM (lambda (str)
+	       (case str
+		 ("hh" (game-loop #\a #\b player player (board-construct)))
+		 ("ch" (game-loop #\a #\b computer player (board-construct)))
+		 ("hc" (game-loop #\a #\b player computer (board-construct)))
+		 ("cc" (game-loop #\a #\b computer computer (board-construct))))))))

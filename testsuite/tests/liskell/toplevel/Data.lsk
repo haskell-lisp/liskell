@@ -1,0 +1,12 @@
+(defmodule Data _ ())
+
+(defdata (MEither a b)
+  (MLeft a)
+  (MRight b))
+
+(define (mkLeft a)
+    (MLeft a))
+
+(define main
+    (let (((MLeft a) (mkLeft 12)))
+      (print a)))

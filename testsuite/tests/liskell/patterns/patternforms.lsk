@@ -1,0 +1,25 @@
+(defmodule Main _ ())
+
+(define main undefined)
+
+(define (primitivevars a b) undefined)
+					;
+(define (wildcard _) undefined)
+
+(define (singleConstructor True) undefined)
+
+(define (charLit #\a) undefined)
+
+(define (intLit 3) undefined)
+
+(define (ratLit 3.3) undefined)
+
+(define (stringLit "bar")
+    (case (, "kuh" "bar")
+      ((, "" "") undefined)))
+
+(define (moreConstructors (Just a) (Just b)) undefined)
+
+(define (asPat (@ asName (Just a))) undefined)
+
+(define (lazyPat (~ (: x xs))) undefined)

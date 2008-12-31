@@ -1,0 +1,27 @@
+(defmodule Defmacro _ (Defdispatcher))
+
+(defenv (lambda ((LskEnv e p t d)) (LskEnv e p t (defhead-dispatcher-dispatcher d))))
+
+;(define (defpfun-fun pt)
+;    (case pt
+;      (([] (: funname args) expr) ; this should be called in the form (defpfun (name args..) expr). (name args..) expr is given as pt.
+;       (let ((selectors (map (bq ))))
+;	 ([] (` define (,funname pt)
+;		 ((lambda ,args
+;		    ,expr)
+;		  ,@selectors)))))) ; return two function declarations. first 
+;  )))
+
+(define (defmacro-fun ([] funhead
+			  expr))
+    (let ((dispatcher-name 'kar)
+	  (dispatch-on (head funhead)))
+      ([] `(define ,funhead ,expr)
+	  `(defhead-dispatch ,dispatcher-name
+	    ,dispatch-on
+	    ,dispatch-on)))))
+
+(defheadm-dispatch
+    'defmacro
+    'defmacro-fun
+  'defmacro-dispatcher)

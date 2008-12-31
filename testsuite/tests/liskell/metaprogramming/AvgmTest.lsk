@@ -1,0 +1,6 @@
+(defmodule AvgmTest _ (Liskell Avgm))
+
+(defenv (lambda ((LskEnv e p t d)) (return (LskEnv (avgm-dspr trf_expr e) p t d))))
+
+(define main
+    (print (avgm 1 3 4 5 8)))

@@ -1,0 +1,11 @@
+Loading package base ... linking ... done.
+Loading package haskell98 ... linking ... done.
+Loading package template-haskell ... linking ... done.
+Loading package Cabal-1.1.6.1 ... linking ... done.
+Loading package readline-1.0 ... linking ... done.
+Loading package unix-1.0 ... linking ... done.
+Loading package regex-base-0.71 ... linking ... done.
+Loading package regex-posix-0.71 ... linking ... done.
+Loading package regex-compat-0.71 ... linking ... done.
+Loading package ghc ... linking ... done.
+Loading package LskPrelude ... linking ... done.

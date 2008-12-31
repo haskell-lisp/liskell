@@ -1,0 +1,3 @@
+(defmodule Main _ (Prelude))
+
+(define main undefined)

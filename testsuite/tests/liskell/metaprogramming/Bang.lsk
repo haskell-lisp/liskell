@@ -1,0 +1,84 @@
+(defmodule Bang _ (LskPrelude Liskell))
+
+(defenv (lambda ((LskEnv e p t d)) 
+	  (return (LskEnv (dspr-namespace-dspr e) p t (define-dspr-dspr d)))))
+(defenv (lambda ((LskEnv e p t d)) 
+	  (return (LskEnv e p t (d(add-dspr) d)))))
+
+(add-dspr (expression simple-list)
+	  (expression sParseTree-e)
+	  (expression ++*)
+	  (pattern simple-list)
+	  (pattern sParseTree-p)
+	  (expression backquote)
+	  (declaration def-hdsprs)
+	  (declaration defmacros))
+
+(defdata (PatWriter a)
+    (PatWriter (, a (Maybe ([] ParseTree)))))
+
+(define (runPatWriter (PatWriter a))
+    a)
+
+(define (combine-output a b)
+    (let (((x (Just a) (Just b))
+	   (Just (++ a b)))
+	  ((x (Just _) Nothing)
+	   a)
+	  ((x Nothing (Just _))
+	   b)
+	  ((x Nothing Nothing)
+	   Nothing))
+      (x a b)))
+
+(definstance (Monad PatWriter)
+    ((return a) (PatWriter (, a Nothing)))
+  ((>>= (PatWriter (, a o))
+	f)
+   (let (((PatWriter (, r o'))
+	  (f a)))
+     (PatWriter (, r (combine-output o o'))))))
+
+(define (pw-output pt)
+    (PatWriter (, (,) (Just pt))))
+
+(define (walk-pats pt)
+    (case pt
+      ((SList %((SSym "!")
+	       maybe-bang))
+       (case maybe-bang
+	 ((SSym _)
+	  (>> (pw-output ([] maybe-bang))
+	      (return maybe-bang)))
+	 ((SList _) ; constructor, we don't bang constructors
+	  (>> (pw-output ([]))
+	      (walk-pats maybe-bang)))))
+      ((SList (: constructor
+		 sub-pats))
+       (>>= (mapM walk-pats sub-pats)
+	    (lambda (clean-subpats)
+	      (return (SList (: constructor
+				clean-subpats))))))
+      ((SSym _)
+       (return pt))))
+
+(define-dspr (bang-ptt kn pt ks kf)
+    (case pt
+      ((SList %((SSym "lambda")
+		(SList pats)
+		expr))
+       (let (((PatWriter (, clean-pats maybe-banged-pats))
+	      (mapM walk-pats pats)))
+	 (case maybe-banged-pats
+	   (Nothing (kn pt ks kf))
+	   ((Just banged-pats)
+	    (ks (SList %((SSym "lambda")
+			 (SList clean-pats)
+			 (foldr (lambda (pt pts)
+				  `(seq ,pt ,pts))
+				expr
+				banged-pats))))))))
+      (_ (kn pt ks kf))))
+
+(define pt1 `(lambda ((! x)) x))
+(define pt2 `(lambda ((! (Just (! x))) (Just (! y))) x))

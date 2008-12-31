@@ -1,0 +1,99 @@
+(defmodule Backquote _ (Liskell SrcLoc LskParseTree SimpleList))
+
+(define (backquote-dispatcher-on-syms ks kf pt)
+    (case pt
+      ((PSym loc sym qual)
+       (if (== (head sym) #\`)
+	   (ks (PList loc ([] (PSym noSrcSpan "PSym" "")
+				    (PSym noSrcSpan "noSrcSpan" "")
+				    (PString noSrcSpan (tail sym))
+				    (PString noSrcSpan qual))
+			    noPP))
+	   (kf pt)))
+      (_ (kf pt))))
+
+
+(defenv (lambda ((LskEnv e p t d)) 
+	  (return (LskEnv (backquote-dispatcher-on-syms trf_expr e) p t d))))
+
+(defenv (lambda ((LskEnv e p t d)) 
+	  (return (LskEnv (simple-list-dispatcher trf_expr e) p t d))))
+
+(define (sPList lst)
+    (PList noSrcSpan lst noPP))
+
+(define (bq-transform-lst pts curlst)
+    (case pts
+      (([]) (sPList (: `[] (reverse curlst))))
+      ((: x xs)
+       (case x
+	 ;; Escaped symbol of the forms ,foo ,@foo
+	 ((@ sym (PSym loc string qual))
+	  (if (&& (== (head string) #\,)
+		  (< 1 (length string)))     ;; otherwise it might be tuple (, foo)
+	      (if (== (!! string 1) #\@)
+		  ;; Is a spliced list
+		  (sPList '(`++
+			    (bq-transform-lst ([]) curlst)
+			    (sPList '(`++
+				      (PSym loc (tail (tail string)) qual)
+				      (bq-transform-lst xs ([]))))))
+		  ;; Eval symbol
+		  (bq-transform-lst xs
+				    (: (PList loc '(`toParseTree
+						    (PSym loc (tail string) qual))
+					      noPP)
+				       curlst)))
+	      ;; Normal symbol. Quote it!
+	      (bq-transform-lst xs
+				(: (PList loc ([] `PSym
+						  `noSrcSpan
+						  (PString loc string)
+						  (PString loc qual))
+					  noPP)
+				   curlst))))
+	 ;; Escaped lists of the form ,(foobar a b)
+	 ((PList loc lst (, pre post))
+	  (if (&& (< 0 (length pre)) 
+		  (== (head pre) #\,))
+	      (bq-transform-lst xs
+				(: (PList loc ([] `toParseTree
+						  (PList loc lst noPP))
+					  noPP)
+				   curlst))
+	      (bq-transform-lst xs
+				(: (sPList '(`PList
+					     `noSrcSpan
+					     (bq-transform-lst lst ([]))
+					     `noPP)) 
+				   curlst))))
+	 ;; Autoquoting of strings
+	 ;; The problem with strings are that they are actually a type synonym for [Char] 
+         ;; As type synonyms can be part of instance declaration but toParseTree
+	 ;; relays on instance decls., we have to manually convert strings here
+	 ((@ s (PString loc str))
+	  (bq-transform-lst xs
+			    (: (PList loc
+				      '(`PString
+					`noSrcSpan
+					(PString noSrcSpan str))
+				      noPP)
+			       curlst)))
+	 (other (bq-transform-lst xs
+				  (: (PList (ploc other) '(`toParseTree
+							   other)
+					    noPP)
+				     curlst)))))))
+
+(define (backquote-dispatcher-on-lists ks kf pt)
+    (case pt
+      ((PList loc lst (, "`" ""))
+       (ks (sPList '(`PList
+		    `noSrcSpan
+		    (bq-transform-lst lst ([]))
+		    `noPP))))
+      (_ (kf pt))))
+
+(define (backquote-dispatcher ks kf)
+    (backquote-dispatcher-on-syms ks (backquote-dispatcher-on-lists ks kf)))
+

@@ -1,0 +1,7 @@
+(defmodule Meta1 _ (SrcLoc LskParseTree LskTransformationMonad HsSyn RdrName
+		    Cond))
+
+(macrolet (lambda ((LskEnv e p t d)) (LskEnv (backquote-dispatcher e) p t d))
+  (define main
+      (print (let ((char #\a))
+	       (show (bq ,char))))))

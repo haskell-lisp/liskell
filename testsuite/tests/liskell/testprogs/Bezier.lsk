@@ -1,0 +1,134 @@
+(defmodule Bezier _ (Liskell LskPrelude System))
+
+;; Bezier Curve compile-time computation performance test
+
+(defenv (lambda ((LskEnv e p t d)) 
+	  (return (LskEnv (dspr-namespace-dspr e) p t (define-dspr-dspr d)))))
+(defenv (lambda ((LskEnv e p t d)) 
+	  (return (LskEnv e p t (d(add-dspr) d)))))
+
+(add-dspr (declaration defmacros)
+	  (declaration def-hdsprs)
+	  (expression backquote)
+	  (expression simple-list)
+	  (pattern simple-list)
+	  (declaration def-binary-fun-as-prefix)
+	  (expression sParseTree-e)
+	  (pattern sParseTree-p))
+
+(def-binary-fun-as-prefix + right)
+(def-binary-fun-as-prefix - left)
+(def-binary-fun-as-prefix * right)
+
+(add-dspr (expression +*)
+	  (expression -*)
+	  (expression **)
+	  (expression ++*))
+
+
+(defdata Point (Point Float Float))
+
+(definstance (Show Point)
+    ((show (Point a b)) (++* "Point " (show a) " " (show b))))
+(define (px (Point x _)) x)
+(define (py (Point y _)) y)
+
+;; In tribute to Paul Graham's On Lisp: "Computation At Compile-Time"
+
+(defmacro (bezier %((SSym snumber)))
+    (let (((Just number) (:: (convertNumber snumber) (Maybe Integer))))
+      `(lambda (s c1 c2 e)
+	 (let ((cx (* (- (px s)
+			 (px c1))
+		      3))
+	       (cy (* (- (py s)
+			 (py c1))
+		      3))
+	       (sx (* (- (px c2)
+			 (px c1))
+		      3))
+	       (sy (* (- (py c2)
+			 (py c1))
+		      3))
+	       (bx (- sx cx))
+	       (by (- sy cy))
+	       (ax (-* (px e) 
+		       sx
+		       (px s)))
+	       (ay (-* (py e) 
+		       sy
+		       (py s))))
+	   ([] s ,@(map (lambda (u)
+			  `(Point (+* (* ax ,(SSym (show (* u (* u u)))))
+				      (* bx ,(SSym (show (* u u))))
+				      (* cx ,(SSym (show u)))
+				      (px s))
+				  (+* (* ay ,(SSym (show (* u (* u u)))))
+				      (* by ,(SSym (show (* u u))))
+				      (* cy ,(SSym (show u)))
+				      (py s))))
+			(:: (take (fromInteger number)
+				  (tail (enumFromThenTo 0
+							(/ 1 (fromInteger (+ 1 number)))
+							1)))
+			    ([] Float)))
+	       e)))))
+
+(define (bezier-fun number s c1 c2 e)
+    (let ((cx (* (- (px s)
+		    (px c1))
+		 3))
+	  (cy (* (- (py s)
+		    (py c1))
+		 3))
+	  (sx (* (- (px c2)
+		    (px c1))
+		 3))
+	  (sy (* (- (py c2)
+		    (py c1))
+		 3))
+	  (bx (- sx cx))
+	  (by (- sy cy))
+	  (ax (-* (px e) 
+		  sx
+		  (px s)))
+	  (ay (-* (py e) 
+		  sy
+		  (py s))))
+      (++ (: s
+	     (map (lambda (u)
+		    (let ((u2 (* u u))
+			  (u3 (* u u2)))
+		      (Point (+* (* ax u3)
+				 (* bx u2)
+				 (* cx u)
+				 (px s))
+			     (+* (* ay u3)
+				 (* by u2)
+				 (* cy u)
+				 (py s)))))
+		  (take (fromInteger number)
+			(tail (enumFromThenTo 0
+					      (/ 1 (fromInteger (+ 1 number)))
+					      1)))))
+	  ([] e))))
+
+(add-dspr (expression bezier))
+
+(define main
+    (>>= System.getArgs
+	 (lambda (([] which))
+	   (let ((fun-to-call (case which
+				("macro" (bezier 20))
+				("fun" (bezier-fun 20)))))
+	     (print (show
+		     (foldr (lambda (list res)
+			      (+ (foldr (lambda ((Point x y) res)
+					  (+ res x))
+					0
+					list)
+				 res))
+			    0
+			    (map (lambda (x)
+				   (fun-to-call (Point 0 0) (Point 1 1) (Point 2 2) (Point 3 x)))
+				 (enumFromTo 0 50000)))))))))

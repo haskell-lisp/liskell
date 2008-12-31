@@ -1,0 +1,25 @@
+(defmodule Star _ (LskPrelude Liskell))
+
+(defenv (lambda ((LskEnv e p t d)) 
+	  (return (LskEnv (dspr-namespace-dspr e) p t (define-dspr-dspr d)))))
+(defenv (lambda ((LskEnv e p t d)) 
+	  (return (LskEnv e p t (d(add-dspr) d)))))
+
+(add-dspr (declaration defmacros)
+	  (declaration def-hdsprs)
+	  (expression backquote))
+
+(defmacro (~= pts)
+  `(let (((comp ,pts) True)
+         ((comp _) False))
+     comp))
+
+(add-dspr (expression ~=))
+
+(defdata Star
+  (Atom)
+  (Star String))
+
+(define main
+    (print (show ([] (all (~= Star _) ([] (Star "x") (Star "foobar")))
+		     (all (~= Star _) ([] (Atom) (Star "x")))))))

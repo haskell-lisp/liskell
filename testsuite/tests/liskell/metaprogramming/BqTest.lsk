@@ -1,0 +1,25 @@
+(defmodule BqTest _ (Liskell LskPrelude Debug.Trace))
+
+(defenv (lambda ((LskEnv e p t d))
+	  (return (LskEnv (backquote-dspr
+			   (sParseTree-e-dspr (cond-dspr (simple-list-dspr e))))
+			  (sParseTree-p-dspr (simple-list-dspr p))
+			  t
+			  (def-hdspr-dsprs
+			      (defmacro-dspr (infix-to-multi-prefix-dspr d)))))))
+(defenv (lambda ((LskEnv e p t d))
+	  (return (LskEnv 
+		   e p
+		   t (infix-to-multi-prefix-dspr d)))))
+
+(define x `(1 2 3 4))
+(define foo `(a ,@(let ((a `(1 2 3 4)))
+		       a) c))
+
+(infix-to-multi-prefix + left)
+
+(defenv (lambda ((LskEnv e p t d))
+	  (return (LskEnv (+-dspr e)
+			  p t d))))
+
+(define main (putStrLn (show (+* 1 2 3 4 5 6))))

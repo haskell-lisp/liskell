@@ -1,0 +1,6 @@
+;; Dependency tracking test for GHC
+
+(defmodule Test02 _ (Prelude Test02Dep))
+
+(define main undefined)
+

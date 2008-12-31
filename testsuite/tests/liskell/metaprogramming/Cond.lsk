@@ -1,0 +1,37 @@
+(defmodule Cond _ (LskToHs SrcLoc LskParseTree LskTransformationMonad HsSyn RdrName))
+
+(define (trf_cond capairs)
+    (case capairs
+      (([]) (PSym noSrcSpan "undefined" "")) ; no actions. return undefined. 
+      ((: (PList _ ([] cond action) (, "" ""))
+	  rest)
+       (PList noSrcSpan ([] (PSym noSrcSpan "if" "")
+			    cond
+			    action
+			    (trf_cond rest))
+	      (, "" "")))
+      (_ (error (show capairs)))))
+
+(defwithsig (cond-dspr kn pt ks kf)
+    (-> (-> ParseTree
+	    (-> ParseTree a)
+	    (-> ParseTree a)
+	    a)
+	ParseTree
+	(-> ParseTree a)
+	(-> ParseTree a)
+	a)
+  (case pt
+    ((PList _ (: (PSym _ "cond" "") rest) (, "" ""))
+     (ks (trf_cond rest)))
+    (_ (kn pt ks kf))))
+
+
+(defenv (lambda ((LskEnv e p t d))
+	  (return (LskEnv (cond-dspr e) p t d))))
+
+(define main
+    (putStrLn (cond ((< 1 0)
+		   "1")
+		  (True
+		   "0"))))

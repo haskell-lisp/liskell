@@ -1,0 +1,54 @@
+(defmodule Main _ ((LskPrelude)))
+
+(define main undefined)
+
+; test all literals
+(define myint 30)
+(define myhexint 0x30)
+(define myoctnt 0o1237)
+
+(define mychar #\1)
+(define mydoublequote #\")
+(define mystring "adsada")
+(define myrational 4.2)
+
+; test all atom symbol forms
+(define myvarref myint)
+(define mytrue True)
+
+; nil checks
+(define nil ([]))
+(define [] ([]))
+(define mycons (: 1 nil))
+(define mycons2 (: True nil))
+(define mycons3 (: True []))
+(define prelude-just Prelude.Just)
+
+(define regularapp (+ myint myint))
+(define myid (lambda (x) x))
+(define myadd (lambda (x y)
+		(+ x y)))
+
+(define mycondition (if True 0 1))
+(define mylist ([] 1 2 3))
+
+(define mylet (let ((x mylist)
+		    ((somefun foo) (head foo)))
+		 (somefun x)))
+
+(define mycase (case (+ 2 3)
+		 (5 True)
+		 (_ False)))
+
+(define mycoerce (:: 4 Int))
+
+(define nullarytup (,))
+(define twotup (, 1 2))
+
+(define enumTest (:: (enumFromThenTo 0
+				     (/ 1 (fromInteger (+ 1 10)))
+				     1)
+		     ([] Float)))
+
+(define apptest (let (((lambda x) x))
+		  (app lambda 12)))

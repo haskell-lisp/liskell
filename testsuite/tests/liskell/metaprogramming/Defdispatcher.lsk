@@ -1,0 +1,61 @@
+(defmodule Defdispatcher _
+  ((LskToHs (flags hiding) main)
+   SrcLoc
+   LskParseTree
+   LskTransformationMonad
+   Backquote
+   Quote))
+
+(defenv (lambda ((LskEnv e p t d)) (return (LskEnv (backquote-dispatcher (quote-dispatcher trf_expr e)) p t d))))
+
+;; defhead is only able to define a dispatch function for a
+;; transformation of the head of the declaration list
+
+(define (defhead-dispatcher-fun ([] dispatcher-name dispatch-on dispatcher-fun))
+    `(define (,dispatcher-name k (: p ps))
+      (case p
+	((PList loc (: h t) (, "" ""))
+	 (if (== h ,dispatch-on)
+	     (k (: (,dispatcher-fun t)
+		   ps))
+	     (k (: p ps))))
+	(_ (k (: p ps))))))
+
+;; defheadm is able to define dispatcher that emit a series of declarations
+
+(define (defheadm-dispatcher-fun ([] dispatcher-name dispatch-on dispatcher-fun))
+    `(define (,dispatcher-name k (: p ps))
+      (case p
+	((PList loc (: h t) (, "" ""))
+	 (if (== h ,dispatch-on)
+	     (k (++ (,dispatcher-fun t)
+		    ps))
+	     (k (: p ps))))
+	(_ (k (: p ps))))))
+
+(define (defheade-dispatcher-fun ([] dispatcher-name dispatch-on dispatcher-fun))
+    `(define (,dispatcher-name k p)
+      (case p
+	((PList loc (: h t) (, "" ""))
+	 (if (== h ,dispatch-on)
+	     (k (,dispatcher-fun t))
+	     (k p)))
+	(_ (k p)))))
+
+(define (defhead-dispatcher-dispatcher-generic dispatch-on dispatch-fun k (: p ps))
+    (case p
+      ((PList loc (: h t) (, "" ""))
+       (if (== h dispatch-on)
+	   (k (: (dispatch-fun t)
+		 ps))
+	   (k (: p ps))))
+      (_ (k (: p ps)))))
+
+(define defheadm-dispatcher-dispatcher
+    (defhead-dispatcher-dispatcher-generic 'defheadm-dispatcher defheadm-dispatcher-fun))
+
+(define defhead-dispatcher-dispatcher
+    (defhead-dispatcher-dispatcher-generic 'defhead-dispatcher defhead-dispatcher-fun))
+
+(define defheade-dispatcher-dispatcher
+    (defhead-dispatcher-dispatcher-generic 'defheade-dispatcher defheade-dispatcher-fun))

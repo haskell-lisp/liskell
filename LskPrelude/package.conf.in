@@ -1,0 +1,25 @@
+name:		PACKAGE
+version:	VERSION
+license:	BSD3
+maintainer:	clemens@endorphin.org
+exposed:	True
+
+exposed-modules:
+	LskPrelude
+
+hidden-modules:
+
+import-dirs:	IMPORT_DIR
+library-dirs:	LIB_DIR
+hs-libraries:   "HSLskPrelude"
+extra-libraries:
+include-dirs:
+includes:
+depends:	DEPENDS
+hugs-options:
+cc-options:
+ld-options:
+framework-dirs:
+frameworks:
+haddock-interfaces:	HADDOCK_IFACE
+haddock-html:		HTML_DIR

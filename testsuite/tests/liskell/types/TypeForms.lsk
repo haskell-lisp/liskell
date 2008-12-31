@@ -1,0 +1,35 @@
+(defmodule TypeForms _ ())
+
+(define main undefined)
+
+(define regularTyApp undefined (Either Int Char))
+
+(define funType undefined
+  (-> Int Bool Char))
+
+(define contextedType undefined
+  (=> ((Show a) (Num a))
+      (-> a String)))
+
+(define contextedTypeAutoWrapped undefined
+  (=> (Show a)
+      (-> a String)))
+
+(define listType undefined
+  ([] Int))
+
+(define nullarytupType undefined
+  (,))
+
+(define twotup undefined
+  (, Int Bool))
+
+(define nonstandardapp undefined
+  (app Either Int Bool))
+
+(defwithsig
+    (myid a)
+    (-> a a)
+    a)
+
+;(defdata Foo ()) - Bang Type missing

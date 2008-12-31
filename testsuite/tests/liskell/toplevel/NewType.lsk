@@ -1,0 +1,15 @@
+(defmodule NewType _ ())
+
+(defnewtype Natural (MakeNatural Int))
+
+(define (toNatural x)
+    (if (< x 0)
+	(error "Can't create negative naturals!")
+        (MakeNatural x)))
+
+
+(define (fromNatural (MakeNatural i))
+    i)
+
+(define main
+    (print (fromNatural (toNatural 4711))))

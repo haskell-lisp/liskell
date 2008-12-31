@@ -1,0 +1,8 @@
+(defmodule DefmacroTest _ (LskParseTree SrcLoc Quote Backquote Defdispatcher LskTransformationMonad Defmacro Defdispatcher))
+
+(defenv (lambda ((LskEnv e p t d)) (LskEnv (backquote-dispatcher (quote-dispatcher e)) p t (defmacro-dispatcher (defhead-dispatcher-dispatcher d)))))
+
+(defmacro (avgm pts)
+ (let ((wrapped `([] ,pts)))
+   `(/ (sum ,wrapped)
+     ,(length pts))))

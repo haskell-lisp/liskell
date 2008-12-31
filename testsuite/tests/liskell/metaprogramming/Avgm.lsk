@@ -1,0 +1,13 @@
+(defmodule Avgm _ (Liskell LskPrelude))
+
+(defenv (lambda ((LskEnv e p t d))
+	  (return (LskEnv (backquote-dspr trf_expr e) p t (defmacro-dspr trf_decl (def-hdspr-dsprs trf_decl d))))))
+
+;; Naive average
+;; (define (avg lst)
+;;   (/ (sum lst) (length lst)))
+;; Improved avg macro, compile-time list traversal
+
+(defmacro (avgm pts)
+  `(/ (sum ([] ,@pts))
+    ,(length pts)))

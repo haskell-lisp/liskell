@@ -1,0 +1,6 @@
+
+Defdispatcher.lsk:2:27: Module `LskToHs' does not export `main'
+
+Defdispatcher.lsk:7:3:
+    Failed to load interface for `Quote':
+      Use -v to see a list of the files searched for.

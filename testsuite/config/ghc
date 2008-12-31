@@ -1,0 +1,69 @@
+# Testsuite configuration setup for GHC
+#
+# This file is Python source
+#
+config.compiler_type         = 'ghc'
+config.compiler              = 'ghc'
+config.compiler_always_flags = ['-fforce-recomp', '-dcore-lint', '-dcmm-lint']
+
+# By default, we test the 'normal' and 'opt' ways.
+# 'optasm' is added by mk/test.mk if the compiler has a native code gen,
+# 'prof'   is added by mk/test.mk if the profiling way is enabled.
+config.compile_ways	     = ['normal']
+config.run_ways		     = ['normal']
+
+# ways that are not enabled by default, but can always be invoked explicitly
+config.other_ways            = ['extcore','optextcore']
+
+if (ghc_with_native_codegen == 1):
+	config.compile_ways.append('optasm')
+	config.run_ways.append('optasm')
+
+if (ghc_with_profiling == 1):
+	config.have_profiling = True
+	config.compile_ways.append('prof')
+	config.run_ways.append('prof')
+	if (ghc_with_native_codegen == 1):
+		config.compile_ways.append('profasm')
+		config.run_ways.append('profasm')
+
+if (ghc_with_unreg == 1):
+	config.compile_ways.append('unreg')
+	config.run_ways.append('unreg')
+
+if (ghc_with_interpreter == 1):
+	config.run_ways.append('ghci')
+
+if (ghc_with_threaded_rts == 1):
+	config.run_ways.append('threaded1')
+	if (ghc_with_smp == 1):
+		config.run_ways.append('threaded2')
+
+config.way_flags = {
+	'normal'     : [],
+	'opt'        : ['-O'],
+	'optasm'     : ['-O -fasm'],
+	'prof'       : ['-O -prof -auto-all'],
+	'profasm'    : ['-O -prof -auto-all -fasm'],
+	'unreg'      : ['-unreg'],
+	'ghci'       : ['--interactive', '-v0'],
+	'extcore'    : ['-fext-core'],
+	'optextcore' : ['-O -fext-core'],
+	'threaded1'  : ['-threaded', '-debug'],
+	'threaded2'  : ['-O', '-threaded']
+	}
+
+config.way_rts_flags = { 
+	'normal'     : [],
+	'opt'        : [],
+	'optasm'     : [],
+	'prof'       : ['-p'],
+	'profasm'    : ['-hc'], # test heap profiling too
+	'unreg'      : [],
+	'ghci'       : [],
+	'extcore'    : [],
+	'optextcore' : [],
+	'threaded1'  : [],
+	'threaded2'  : ['-N2']
+    	}
+

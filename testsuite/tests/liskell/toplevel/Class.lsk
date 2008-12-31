@@ -1,0 +1,18 @@
+(defmodule Class _ ())
+
+(defclass (Bar a)
+    (kuh (-> a Int)))
+(defdata (Tree a) (Leaf a) (Branch (Tree a) (Tree a)))
+
+(definstance (=> (Eq a) (Eq (Tree a)))
+    ((== (Leaf a) (Leaf b))
+     (== a b)))
+
+(defnewtype CharTree (CharTree (Tree Char)))
+
+(definstance (Bar CharTree)
+    ((kuh (CharTree _))
+     0))
+
+(define main
+    (print (show (kuh (CharTree (Leaf #\a))))))

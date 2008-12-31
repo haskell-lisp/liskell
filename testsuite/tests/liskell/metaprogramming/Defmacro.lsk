@@ -1,0 +1,68 @@
+(defmodule Defmacro _ (LskParseTree SrcLoc Quote Backquote Defdispatcher LskTransformationMonad LskToHs))
+
+(defenv (lambda ((LskEnv e p t d))
+	  (return (LskEnv (backquote-dispatcher (quote-dispatcher trf_expr e)) p t (defheadm-dispatcher-dispatcher d)))))
+
+;(define (defpfun-fun pt)
+;    (case pt
+;      (([] (: funname args) expr) ; this should be called in the form (defpfun (name args..) expr). (name args..) expr is given as pt.
+;       (let ((selectors (map (bq ))))
+;	 ([] (` define (,funname pt)
+;		 ((lambda ,args
+;		    ,expr)
+;		  ,@selectors)))))) ; return two function declarations. first 
+;  )))
+
+(define (getLstfromPlist pl)
+    (let (((PList _ lst _) pl))
+      lst))
+
+(define (getStrfromPSym pl)
+    (let (((PSym _ str _) pl))
+      str))
+
+(define (getQualfromPSym pl)
+    (let (((PSym _ _ qual) pl))
+      qual))
+
+(define (trfPSymSym p f)
+    (let (((PSym loc str qual) p))
+      (PSym loc (f str) qual)))
+
+(defwithsig (defmacro-fun ([] funhead
+			  expr))
+    (-> ([] ParseTree) ([] ParseTree))
+  (let ((dispatch-fun (head (getLstfromPlist funhead)))
+	(dispatcher-name (trfPSymSym dispatch-fun (lambda (s) (++ s "-dispatch")))))
+    ([] `(define ,funhead ,expr)
+	`(defhead-dispatcher
+	  ,dispatcher-name
+	  ',dispatch-fun
+	  ,dispatch-fun))))
+
+(defwithsig (defmacroe-fun ([] funhead
+			  expr))
+    (-> ([] ParseTree) ([] ParseTree))
+  (let ((dispatch-fun (head (getLstfromPlist funhead)))
+	(dispatcher-name (trfPSymSym dispatch-fun (lambda (s) (++ s "-dispatch"))))
+	(dispatch-on (PList noSrcSpan ([] (PSym noSrcSpan "PSym" "")
+					  (PSym noSrcSpan "noSrcSpan" "")
+					  (PString noSrcSpan (getStrfromPSym dispatch-fun))
+					  (PString noSrcSpan (getQualfromPSym dispatch-fun)))
+			    noPP)))
+    ([] `(define ,funhead ,expr)
+	`(defheade-dispatcher
+	  ,dispatcher-name
+	  ,dispatch-on
+	  ,dispatch-fun))))
+
+(defheadm-dispatcher
+  defmacroe-dispatcher
+  'defmacroe
+  defmacroe-fun)
+
+(defheadm-dispatcher
+  defmacro-dispatcher
+  'defmacro
+  defmacro-fun)
+

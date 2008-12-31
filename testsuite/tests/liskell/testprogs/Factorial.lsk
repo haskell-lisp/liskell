@@ -1,0 +1,14 @@
+;;;; This is the first Liskell program ever.
+
+(defmodule Main
+  (main) ())
+
+(define (fact n)
+    (case (== n 0)
+      ((True) 1)
+      (False (* n (Main.fact (- n 1))))))
+
+(define (main)
+    (print (fact 12)))
+
+
