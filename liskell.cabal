@@ -1,0 +1,37 @@
+Name: liskell
+Version: 0.1
+Copyright: Clemens Fruhwirth <clemens@endorphin.org>
+License: BSD3
+-- License-File: XXX
+Author: XXX
+Maintainer: clemens@endorphin.org
+Homepage: http://liskell.com
+Description:
+        XXX
+Category: XXX
+Build-Type: Simple
+Cabal-Version: >= 1.2
+
+Flag base3
+    Description: Choose the new smaller, split-up base package.
+
+Flag ghci
+    Description: Build GHCi support.
+
+Executable liskell
+    Main-Is: Main.hs
+    other-modules: LexLiskell, ParseLiskell
+    Build-Depends: base       >= 3   && < 5,
+                       directory  >= 1   && < 1.1
+    Build-Depends: base, ghc, array, old-time, ghc-paths
+    Build-Depends: filepath >= 1 && < 1.2
+
+    if flag(ghci)
+        CPP-Options: -DGHCI
+    Extensions: CPP, PatternGuards, RankNTypes, ScopedTypeVariables
+    ghc-options: -w -fglasgow-exts 
+
+library
+    exposed-modules: Liskell, LexLiskell, LskParseTree, LskTransformationMonad, ParseLiskell, ReadRationalS
+    Extensions: CPP, PatternGuards, RankNTypes, ScopedTypeVariables
+    ghc-options: -w -fglasgow-exts 
