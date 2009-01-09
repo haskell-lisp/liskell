@@ -36,17 +36,12 @@ emptyModSummary = ModSummary {
 
 
 eval expr (imports, decls) hsc_env = do
-#warning UGLY HACK
   (PSym _ (_:newname)) <- genSym
   liftIO $ runGhc (Just libdir) $ do
---      dflags <- getSessionDynFlags
---      setSessionDynFlags dflags
       setSession hsc_env
       dflags <- getSessionDynFlags
---      GHC4Lsk.setTargets (map ((\s -> Target { targetId = TargetModule s, targetAllowObjCode = True, targetContents = Nothing }) . unLoc . ideclName . unLoc) imports)
---      GHC4Lsk.load GHC4Lsk.LoadAllTargets
       let prelude_mod = mkModuleName "Prelude"
-#warning allow overriding the default import
+#warning Recognize explicit Prelude imports
       mods <- mapM (`GHC4Lsk.findModule` Nothing) (prelude_mod:(map (unLoc . ideclName . unLoc) imports))
       liftIO $ log ("imports:" ++ (show $ length mods) ++ ", decls:" ++ (show $ length decls))
 --      prel_mod <- GHC4Lsk.getPrelude
@@ -71,7 +66,7 @@ eval expr (imports, decls) hsc_env = do
 	    lskEnvType <- tcMetaTy lskEnvName
 	    return lskEnvType
       (Just hval) <- withSession (\e -> compileHsExpr e expr lskType)
-#warning We don't need to unlink that MUCH
+      -- We don't need to unlink that MUCH
       liftIO $ GHC4Lsk.unload hsc_env [] 
       return ((unsafeCoerce# hval) :: LskEnvironment -> IO LskEnvironment )
    where 

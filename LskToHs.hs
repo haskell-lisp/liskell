@@ -6,8 +6,6 @@
 -- Author(s): Clemens Fruhwirth <clemens@endorphin.org>
 -- ---------------------------------------------------------------------------
 
-#warning This is for ghc-6.10
-
 module LskToHs where
 
 import ParseLiskell
@@ -102,14 +100,14 @@ trf_iename (PList loc (s@(PSym _ sym):rest) ("",""))
                           modname:[] -> do
                                     modname_t <- trf_modulename modname
 				    return (L loc (IEModuleContents modname_t))
-			  otherwise -> throwError (text "wrong arity for module in exports")
+			  otherwise -> throwError (text "Wrong arity for module in exports")
     | isUpSymId sym =
         case rest of
           (PSym loc "_"):rest ->
               if (null rest) then
                   return (L loc (IEThingAll (mkUnqualS tcClsName sym)))
               else 
-                  throwError (text "wrong wildcard form for iename")
+                  throwError (text "Wrong wildcard form for iename")
           otherwise -> return (L loc (IEThingWith (mkUnqualS tcClsName sym)
                                         (map (mkRdrName2 varName dataName) rest)))
 
@@ -312,7 +310,7 @@ trf_expr_prim (PList loc full@((PSym lloc sym):rest) ("",""))
                 then_t <- trf_expr then_e
                 expr_t <- trf_expr else_e
                 return (L loc (HsIf cond_t then_t expr_t))
-          otherwise -> throwError (text "if doesn't have 3 argument")
+          otherwise -> throwError (text "Wrong arity: `if' needs 3 arguments")
     | sym == "let" = 
         do
          case rest of
@@ -322,7 +320,7 @@ trf_expr_prim (PList loc full@((PSym lloc sym):rest) ("",""))
                  expr_t <- trf_expr expr
                  return (L loc (HsLet (HsValBinds (cvBindGroup bindings_t))
                                       expr_t))
-           otherwise -> throwError (text "wrong arity, let 2 arguments")
+           otherwise -> throwError (text "wrong arity: `let' needs 2 arguments")
     | sym == "case" = 
         case rest of 
           (expr_e:as) -> do
@@ -336,21 +334,21 @@ trf_expr_prim (PList loc full@((PSym lloc sym):rest) ("",""))
                                     expr_t <- trf_expr expr
                                     pats_t <- mapM trf_pattern pats
                                     return (L loc (HsLam (mkMatchGroup [(mkSimpleMatch pats_t expr_t)])))
-                          _ -> throwError (text "wrong arity for lambda")
+                          _ -> throwError (text "Wrong arity: `lambda' needs 2 arguments")
     | sym == "::" = 
         case rest of 
           [expr, type_e] -> do 
                     expr_t <- trf_expr expr
                     type_t <- trf_sig_type type_e
                     return (L loc (ExprWithTySig expr_t type_t))
-          otherwise -> throwError (text "wrong arity for ::")
+          otherwise -> throwError (text "Wrong arity: `::' needs 2 arguments")
     | sym == "[]" = do
         exprs_t <- mapM trf_expr rest
         return (L loc (ExplicitList placeHolderType exprs_t))
     | sym == "," = do
         exprs_t <- mapM trf_expr rest
         return (L loc (ExplicitTuple exprs_t BasicTypes.Boxed))
-#warning NO ENVLET in EXPR
+#warning envlet support in expression removed for the moment
 {--    | sym == "envlet" = case rest of
                             macrofun:expr:[] -> do 
                                       macrofun_t <- trf_expr macrofun
@@ -405,12 +403,12 @@ trf_pattern_prim p@(PList loc (sym@(PSym sloc id):rest) ("",""))
                            return (L loc (AsPat (mkLRdrName2 varName undefined assym) p_t))
                          else
                              throwError (text "as name must be a lowid")
-                   otherwise -> throwError (text "wrong arity for @ pattern")
+                   otherwise -> throwError (text "Wrong arity: `@' needs two arguments")
   | id == "~" = case rest of 
                    p:[] -> do
                      p_t <- trf_pattern p
                      return (L loc (LazyPat p_t))
-                   otherwise -> throwError (text "wrong arity for ~ pattern")
+                   otherwise -> throwError (text "wrong arity: `~' needs one argument")
 --  | id == "!" = case rest of 
 --                   p:[] -> undefined
 --  | id == "::" = case rest of 
@@ -429,8 +427,8 @@ trf_pattern_prim p@(PList loc (sym@(PSym sloc id):rest) ("",""))
                               return (L loc (ConPatIn (mkLRdrName2 undefined dataName sym)
                                                           (PrefixCon ps_t)))
                         else
-                            throwError (text "error in explicit prefix constructor")
-                    otherwise -> throwError (text "error in explicit prefix constructor")
+                            throwError (text "Error in explicit prefix constructor")
+                    otherwise -> throwError (text "Error in explicit prefix constructor")
   | isUpId id = do
        ps_t <- mapM trf_pattern rest
        return (L loc (ConPatIn (mkLRdrName2 undefined dataName sym)
@@ -458,7 +456,7 @@ trf_type_prim (PList loc full@((PSym sloc sym):rest) ("",""))
                     t1:[] -> do
                               t1_t <- trf_type t1
                               return (L loc (HsListTy t1_t))
-                    otherwise -> throwError (text ("wrong arity for list type"))
+                    otherwise -> throwError (text ("Wrong arity: `[]' needs one argument"))
   | sym == "," = 
       do
         types_t <- mapM trf_type rest
@@ -469,13 +467,7 @@ trf_type_prim (PList loc full@((PSym sloc sym):rest) ("",""))
         type_e:[] -> do
                   type_t <- trf_type type_e
                   return (L loc (HsBangTy HsStrict type_t))
-        otherwise -> throwError (text "incorrect arity for bangtype")
-  -- Type with Kinding
-  | sym == "::" = case rest of 
-                    t1:[] -> throwError (text ("unimplemented kinding type"))
---                              t1_t <- trf_type t1
---                             return (L loc (HsKindSig t1_t undefined))
-                    otherwise -> throwError (text ("wrong arity for list type"))
+        otherwise -> throwError (text "Wrong arity: bangtype needs one argument")
   -- Type with context
   | sym == "=>" = case rest of
                    [(PList loc context ("","")), restricted_type]  -> do
@@ -748,7 +740,7 @@ trf_module (defmodule:decls) onlyheader =
                            trf_decl (PList noSrcSpan decls noPP)
             return (L loc (cHsModule (Just (L (ploc modname) modulename_t))
                            exports_t
-#warning ensure prelude
+#warning Ensure LskPrelude
 			 --  (ensure_lskPrelude imports_t modname)
 			   imports_t
                            decls_t
@@ -775,20 +767,3 @@ seedLskTrfEnv :: IO LskEnvironment
 seedLskTrfEnv = do
   return $ LskEnv idcont idcont idcont idcont
   where idcont = \pt ks kf -> kf pt  -- identitiy continuation
-
-
------------------------------------------------------------------------------------------
---- Main
------------------------------------------------------------------------------------------
-
-{--
-main = 
-  let file = "test01.lsk"
-  in do 
-    content <- (readFile file >>= stringToStringBuffer)
-    env <- seedLskTrfEnv
-    transform_monad <- runTM (liskell_transform_source content (mkSrcLoc (mkFastString file) 1 0)) env
-    case transform_monad of
-      (Right module_t) -> printDoc ZigZagMode stdout (ppr module_t defaultDumpStyle) 
-      (Left (TrErr str _)) -> print str
---}
