@@ -3,7 +3,7 @@ module LskInteractiveEval where
 
 import LskTransformationMonad
 import HsSyn
-import {-# SOURCE #-} GHC4Lsk
+import {-# SOURCE #-} GHCSalat.GHC4Lsk as GHC4Lsk
 import SrcLoc
 import MonadUtils
 import InteractiveEval

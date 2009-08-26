@@ -8,7 +8,7 @@
 -- (c) The University of Glasgow 2005
 --
 -----------------------------------------------------------------------------
-module DriverPipeline4Lsk (
+module GHCSalat.DriverPipeline4Lsk (
 	-- Run a series of compilation steps in a pipeline, for a
 	-- collection of source files.
    oneShot, compileFile,
@@ -30,7 +30,7 @@ import HeaderInfo
 import DriverPhases
 import SysTools
 import HscMain
-import qualified HscMain4Lsk as HML
+import qualified GHCSalat.HscMain4Lsk as HML
 import Finder
 import HscTypes
 import Outputable

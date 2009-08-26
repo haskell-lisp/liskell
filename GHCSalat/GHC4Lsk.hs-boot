@@ -1,5 +1,5 @@
-module GHC4Lsk (ParsedMod,loadModule,typecheckModule,runGhc,setSessionDynFlags,getSessionDynFlags,findModule,ParsedModule(..),compileHsExpr,setTargets,LoadHowMuch(..),load,unload) where
-import GhciMonad
+module GHCSalat.GHC4Lsk (ParsedMod,loadModule,typecheckModule,runGhc,setSessionDynFlags,getSessionDynFlags,findModule,ParsedModule(..),compileHsExpr,setTargets,LoadHowMuch(..),load,unload) where
+import GHCSalat.GhciMonad
 import HscTypes
 import Module
 import FastString

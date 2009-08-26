@@ -5,7 +5,7 @@
 -- The GHC API
 --
 -- -----------------------------------------------------------------------------
-module GHC4Lsk (
+module GHCSalat.GHC4Lsk (
 	-- * Initialisation
 	defaultErrorHandler,
 	defaultCleanupHandler,
@@ -98,7 +98,7 @@ module GHC4Lsk (
         Resume(resumeStmt, resumeThreadId, resumeBreakInfo, resumeSpan,
                resumeHistory, resumeHistoryIx),
         History(historyBreakInfo, historyEnclosingDecl), 
-        GHC4Lsk.getHistorySpan, getHistoryModule,
+        GHCSalat.GHC4Lsk.getHistorySpan, getHistoryModule,
         getResumeContext,
         abandon, abandonAll,
         InteractiveEval.back,
@@ -107,7 +107,7 @@ module GHC4Lsk (
         isModuleInterpreted,
 	InteractiveEval.compileExpr, HValue, dynCompileExpr,
 	lookupName,
-        GHC4Lsk.obtainTermFromId, GHC4Lsk.obtainTermFromVal, reconstructType,
+        GHCSalat.GHC4Lsk.obtainTermFromId, GHCSalat.GHC4Lsk.obtainTermFromVal, reconstructType,
         modInfoModBreaks,
         ModBreaks(..), BreakIndex,
         BreakInfo(breakInfo_number, breakInfo_module),
@@ -247,7 +247,7 @@ import BreakArray
 import NameSet
 import InteractiveEval
 import TcRnDriver
-import TcRnDriver4Lsk
+import GHCSalat.TcRnDriver4Lsk
 import Desugar          ( deSugarExpr )
 import PrelNames
 #endif
@@ -277,11 +277,11 @@ import FamInstEnv       ( emptyFamInstEnv )
 import SrcLoc
 --import CoreSyn
 import TidyPgm
-import DriverPipeline4Lsk
+import GHCSalat.DriverPipeline4Lsk
 import DriverPhases	( HscSource(..), Phase(..), isHaskellSrcFilename, startPhase )
 import HeaderInfo
 import Finder
-import qualified Finder4Lsk as FL
+import qualified GHCSalat.Finder4Lsk as FL
 import HscMain
 import HscTypes
 import DynFlags

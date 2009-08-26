@@ -2,7 +2,7 @@
 -- (c) The GRASP/AQUA Project, Glasgow University, 1993-2000
 --
 
-module HscMain4Lsk where
+module GHCSalat.HscMain4Lsk where
 import TcRnMonad	( initIfaceCheck, TcGblEnv(..) )
 import TcIface		( typecheckIface )
 import ErrUtils

@@ -7,14 +7,13 @@
 -- (c) The University of Glasgow 2005
 --
 -----------------------------------------------------------------------------
-
 module Main (main) where
 --import LskMain
 import LskFileHandler
 
 -- The official GHC API
-import qualified GHC4Lsk as GHC
-import GHC4Lsk		( DynFlags(..), HscTarget(..),
+import qualified GHCSalat.GHC4Lsk as GHC
+import GHCSalat.GHC4Lsk		( DynFlags(..), HscTarget(..),
                           GhcMode(..), GhcLink(..),
 			  LoadHowMuch(..), dopt, DynFlag(..) )
 import CmdLineParser
@@ -22,10 +21,10 @@ import CmdLineParser
 -- Implementations of the various modes (--show-iface, mkdependHS. etc.)
 import LoadIface	( showIface )
 import HscMain          ( newHscEnv )
-import DriverPipeline4Lsk	( oneShot, compileFile )
+import GHCSalat.DriverPipeline4Lsk	( oneShot, compileFile )
 import DriverMkDepend	( doMkDependHS )
 #ifdef GHCI
-import InteractiveUI	( interactiveUI, ghciWelcomeMsg )
+import GHCSalat.InteractiveUI	( interactiveUI, ghciWelcomeMsg )
 #endif
 
 -- Various other random stuff that we need
@@ -54,6 +53,7 @@ import System.FilePath
 import Control.Monad
 import Data.List
 import Data.Maybe
+import qualified GHC.Paths (libdir)
 
 -----------------------------------------------------------------------------
 -- ToDo:
@@ -107,7 +107,7 @@ main =
     Nothing -> return ()
 
   -- start our GHC session
-  GHC.runGhc (Just "/home/clemens/deploy/ghc-6.10.1/lib/ghc-6.10.1/") $ do
+  GHC.runGhc (Just GHC.Paths.libdir) $ do
 
   dflags0 <- GHC.getSessionDynFlags
 

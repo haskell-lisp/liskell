@@ -23,7 +23,7 @@ Executable liskell
     other-modules: LexLiskell, ParseLiskell
     Build-Depends: base       >= 3   && < 5,
                        directory  >= 1   && < 1.1
-    Build-Depends: base, ghc, array, old-time, ghc-paths
+    Build-Depends: base, ghc, array, old-time, ghc-paths, process, bytestring, mtl, haskeline, unix
     Build-Depends: filepath >= 1 && < 1.2
 
     if flag(ghci)

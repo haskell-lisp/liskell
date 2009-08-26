@@ -8,13 +8,13 @@
 --
 -----------------------------------------------------------------------------
 
-module TcRnDriver4Lsk
+module GHCSalat.TcRnDriver4Lsk
 where
 
 #ifdef GHCI
 --import Linker		( HValue, linkExpr )
 import Desugar          ( deSugarExpr )
-import InteractiveUI	( interactiveUI )
+import GHCSalat.InteractiveUI	( interactiveUI )
 import TcRnDriver	-- ( tcRnStmt, tcRnExpr, tcRnType ) 
 import PrelNames	( iNTERACTIVE )
 #endif
